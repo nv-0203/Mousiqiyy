@@ -1,25 +1,41 @@
 let currentSong = new Audio();
 let songList;
 let currFolder;
-let songsArray = [];
 
-const songsFolder = "songs";
+// const songsFolder = "songs";
 
-fetch(songsFolder)
-    .then(response => response.text())
-    .then(data => {
-        const parser = new DOMParser();
-        const htmlDoc = parser.parseFromString(data, 'text/html');
-        const links = htmlDoc.querySelectorAll('a');
-        const fileNames = Array.from(links).map(link => {
-            const href = link.getAttribute('href');
-            const lastSlashIndex = href.lastIndexOf('/');
-            return href.substring(lastSlashIndex + 1); // Extract playlist name from URL
-        });
-        songsArray = fileNames.filter(fileName => !fileName.endsWith('/'));
-        console.log(songsArray);
-    })
-    .catch(error => console.error('Error fetching songs:', error));
+// fetch(`/songs/`)
+//     .then(response => response.text())
+//     .then(data => {
+//         const parser = new DOMParser();
+//         const htmlDoc = parser.parseFromString(data, 'text/html');
+//         const links = htmlDoc.querySelectorAll('a');
+//         const fileNames = Array.from(links).map(link => {
+//             const href = link.getAttribute('href');
+//             const lastSlashIndex = href.lastIndexOf('/');
+//             return href.substring(lastSlashIndex + 1); // Extract playlist name from URL
+//         });
+//         songsArray = fileNames.filter(fileName => !fileName.endsWith('/'));
+//         console.log(songsArray);
+//     })
+//     .catch(error => console.error('Error fetching songs:', error));
+
+let array = [];
+
+async function createArr() {
+    console.log("create song array");
+    let a = await fetch(`/songs/`);
+    let response = await a.text();
+    let div = document.createElement("div");
+    div.innerHTML = response;
+    let anchors = div.getElementsByTagName("a");
+    array = Array.from(anchors)
+        .filter(anchor => {
+            return anchor.href.includes("/songs") && !anchor.href.includes(".htaccess");
+        })
+        .map(anchor => anchor.href.split("/").slice(-2)[0]);
+    console.log(array);
+}
 
 
 
@@ -39,7 +55,7 @@ function secondsToMinutesSeconds(seconds) {
 
 async function getSongs(folder) {
     currFolder = folder;
-    let a = await fetch(`http://127.0.0.1:5500/${folder}/`);
+    let a = await fetch(`/${folder}/`);
     let response = await a.text();
 
     let div = document.createElement('div');
@@ -115,33 +131,51 @@ const playMusic = (track, pause = false) => {
 }
 
 async function displayAlbums() {
-    console.log("displaying albums")
-    let a = await fetch(`http://127.0.0.1:5500/songs`)
-    let response = await a.text();
-
-    let div = document.createElement("div")
-    div.innerHTML = response;
-
-    let x = div.getElementsByClassName("name")
+    console.log("displaying albums");
     let cardContainer = document.querySelector(".cardContainer")
-    let array = Array.from(x)
 
-    for (let index = 1; index < array.length; index++) {
-        const e = array[index];
-
-        let folder = e.innerHTML;
-        //Get the metadata of the folder
-        let a = await fetch(`http://127.0.0.1:5500/songs/${folder}/info.json`)
+    for (let index = 0; index < array.length; index++) {
+        let folder = array[index];
+        // Get the metadata of the folder
+        let a = await fetch(`/songs/${folder}/info.json`)
         let response = await a.json();
-        cardContainer.innerHTML = cardContainer.innerHTML + `<div data-folder="${folder}" class="card">
+        cardContainer.innerHTML = cardContainer.innerHTML + ` <div data-folder="${folder}" class="card">
             <img src="/songs/${folder}/cover.jpg" alt="">
-            <div class = cardText>
-                <h3>${response.title}</h3>
-                <p>${response.description}</p>
-            </div>
+            <h2>${response.title}</h2>
+            <p>${response.description}</p>
         </div>`
+
     }
 }
+
+// async function displayAlbums() {
+//     console.log("displaying albums")
+//     let a = await fetch(`/songs/`)
+//     let response = await a.text();
+
+//     let div = document.createElement("div")
+//     div.innerHTML = response;
+
+//     let x = div.getElementsByClassName("name")
+//     let cardContainer = document.querySelector(".cardContainer")
+//     let array = Array.from(x)
+
+//     for (let index = 1; index < array.length; index++) {
+//         const e = array[index];
+
+//         let folder = e.innerHTML;
+//         //Get the metadata of the folder
+//         let a = await fetch(`/songs/${folder}/info.json`)
+//         let response = await a.json();
+//         cardContainer.innerHTML = cardContainer.innerHTML + `<div data-folder="${folder}" class="card">
+//             <img src="/songs/${folder}/cover.jpg" alt="">
+//             <div class = cardText>
+//                 <h3>${response.title}</h3>
+//                 <p>${response.description}</p>
+//             </div>
+//         </div>`
+//     }
+// }
 
 
 
@@ -151,6 +185,7 @@ async function main() {
     // playMusic(songs[0], true);
 
     //Display All the Albums
+    await createArr();
     await displayAlbums();
 
     //Attach an Event Listener to play, next and previous
@@ -244,7 +279,7 @@ async function main() {
             let folderName = item.currentTarget.dataset.folder;
             songList = await getSongs(`songs/${folderName}`)
 
-            let a = await fetch(`http://127.0.0.1:5500/songs/${folderName}/info.json`)
+            let a = await fetch(`/songs/${folderName}/info.json`)
             let response = await a.json();
             document.querySelector('#playlistName i').textContent = `${response.title}`;
         })
@@ -260,70 +295,55 @@ async function main() {
     })
 
     //change Playlist on clicking the next button on navbar
-    document.querySelector(".nextPlaylist").addEventListener("click", async () => { // Add async here
-        let n = songsArray.length;
+    document.querySelector(".nextPlaylist").addEventListener("click", async () => {
+        let n = array.length;
         let idx = 0;
-        if (currFolder == undefined) {
-            while (songsArray[idx] == '' || songsArray[idx] == 'songs') {
-                idx = (idx + 1) % n;
-            }
-            await getSongs("songs/" + songsArray[idx]); // Add await here
-        } 
-        else {
+        
+        if (currFolder != undefined) {
             const folderName = currFolder.split("/").pop();
-            idx = songsArray.indexOf(folderName);
+            idx = array.indexOf(folderName);
             idx = (idx + 1) % n;
-            while (songsArray[idx] == '' || songsArray[idx] == 'songs') {
-                idx = (idx + 1) % n;
-            }
-            await getSongs("songs/" + songsArray[idx]); // Add await here
         }
 
-        let a = await fetch(`http://127.0.0.1:5500/songs/${songsArray[idx]}/info.json`);
+        await getSongs(`songs/${array[idx]}`);
+        let a = await fetch(`/songs/${array[idx]}/info.json`);
         let response = await a.json();
         document.querySelector('#playlistName i').textContent = `${response.title}`;
     });
 
 
     //change Playlist on clicking the previous button on navbar
-    document.querySelector(".prevPlaylist").addEventListener("click", async () => { // Add async here
-        let n = songsArray.length;
-        let idx = n - 1;
-        if (currFolder == undefined) {
-            while (songsArray[idx] == '' || songsArray[idx] == 'songs') {
-                idx = idx - 1;
-            }
-            await getSongs("songs/" + songsArray[idx]); // Add await here
-        } 
-        else {
+    document.querySelector(".prevPlaylist").addEventListener("click", async () => {
+        let n = array.length;
+        let idx = n-1;
+        if (currFolder != undefined) {
             const folderName = currFolder.split("/").pop();
-            idx = songsArray.indexOf(folderName);
+            idx = array.indexOf(folderName);
             if (idx == 0)
                 idx = n - 1;
             else
                 idx = idx - 1;
-            while (songsArray[idx] == '' || songsArray[idx] == 'songs') {
-                if (idx == 0)
-                    idx = n - 1;
-                else
-                    idx = idx - 1;
-            }
-            await getSongs("songs/" + songsArray[idx]); // Add await here
         }
 
-        let a = await fetch(`http://127.0.0.1:5500/songs/${songsArray[idx]}/info.json`);
+        await getSongs(`songs/${array[idx]}`);
+        let a = await fetch(`/songs/${array[idx]}/info.json`);
         let response = await a.json();
         document.querySelector('#playlistName i').textContent = `${response.title}`;
     });
 
     //add even listener to hide the header when hamburger is clicked (for mobile devices)
-    hamburger.addEventListener("click", () =>{
+    hamburger.addEventListener("click", () => {
         document.querySelector(".header").style.zIndex = -1;
     })
 
     //add even listener to display the header when close button is clicked (for mobile devices)
-    document.querySelector(".close").addEventListener("click", ()=>{
+    document.querySelector(".close").addEventListener("click", () => {
         document.querySelector(".header").style.zIndex = 1;
+    })
+
+    //add event listener to redirect about to GitHub repository
+    document.querySelector(".about").addEventListener("click", () => {
+        window.open("https://github.com/nv-0203/Mousiqiyy", "_blank");
     })
 }
 
