@@ -1,4 +1,4 @@
-# Music Player Web App
+# Mousiqiyy - A Music Player Web App
 
 This repository contains the source code for a responsive music player web application developed using HTML, CSS, and JavaScript. The application allows users to play music playlists, navigate through tracks, and enjoy their favorite songs seamlessly.
 
